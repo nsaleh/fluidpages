@@ -115,7 +115,43 @@ class Tx_Fluidpages_Service_PageService implements t3lib_Singleton {
 		self::$cache[$cacheKey] = $page;
 		return $page;
 	}
-
+        /**
+	 * Process RootLine to find first usable, configured Fluid Page Template.
+	 * WARNING: do NOT use the output of this feature to overwrite $row - the
+	 * record returned may or may not be the same recod as defined in $id.
+	 *
+	 * @param integer $pageUid
+	 * @return array|NULL
+	 * @api
+	 */
+	public function getSubpageTemplateConfiguration($pageUid) {
+		if ($pageUid < 1) {
+			return NULL;
+		}
+		$cacheKey = 'subpage_' . $pageUid;
+		if (TRUE === isset(self::$cache[$cacheKey])) {
+			return self::$cache[$cacheKey];
+		}
+		$pageSelect = new t3lib_pageSelect();
+		$page = $pageSelect->getPage($pageUid);
+		if (strpos($page['tx_fed_page_controller_action_sub'], '->')) {
+			return $page;
+		}
+		do {
+			$page = $this->getWorkspaceParentPage($page);
+			$workspacePage = NULL;
+			$workspacePage = $this->getWorkspacePage($page);
+			if ($workspacePage) {
+				$page = $workspacePage;
+			}
+		} while ($page && !strpos($page['tx_fed_page_controller_action_sub'], '->'));
+		$page['tx_fed_page_controller_action'] = $page['tx_fed_page_controller_action_sub'];
+		if (TRUE === empty($page['tx_fed_page_controller_action'])) {
+			$page = NULL;
+		}
+		self::$cache[$cacheKey] = $page;
+		return $page;
+	}
 	/**
 	 * Gets the workspace parent for a given page
 	 *

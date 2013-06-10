@@ -157,7 +157,103 @@ class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_
 		$templatePathAndFilename = t3lib_div::getFileAbsFileName($templatePathAndFilename);
 		return $templatePathAndFilename;
 	}
-
+        /**
+	 * Converts the contents of the provided row's Flux-enabled field,
+	 * at the same time running through the inheritance tree generated
+	 * by getInheritanceTree() in order to apply inherited values.
+	 *
+	 * @param array $row
+	 * @return array
+	 */
+	public function getFlexFormValues(array $row) {
+		try {
+			$fieldName = $this->fieldName;
+			$stored = $this->getTemplateVariables($row);
+                        if($row['tx_fed_page_controller_action'] || $row['tx_fed_page_flexform_override']){
+                            $immediateConfiguration = $this->configurationService->convertFlexFormContentToArray($row[$fieldName], $stored);
+                        }else{
+                            $immediateConfiguration = array();
+                        }
+			
+                        
+			$tree = $this->getInheritanceTree($row);
+			if (0 === count($tree)) {
+				return $immediateConfiguration;
+			}
+                        
+			$inheritedConfiguration = $this->getMergedConfiguration($tree);
+                        
+			if (0 === count($immediateConfiguration)) {
+				return $inheritedConfiguration;
+			}
+			$merged = t3lib_div::array_merge_recursive_overrule($inheritedConfiguration, $immediateConfiguration);
+			return $merged;
+		} catch (Exception $error) {
+			$this->configurationService->debug($error);
+			return array();
+		}
+	}
+        
+        
+        public function getFlexFormInheritValues(array $row) {
+		try {
+			$fieldName = $this->fieldName.'_sub';
+			$stored = $this->getTemplateVariables($row);
+                        if($row['tx_fed_page_controller_action_sub'] || $row['tx_fed_page_flexform_override_sub']){
+                            $immediateConfiguration = $this->configurationService->convertFlexFormContentToArray($row[$fieldName], $stored);
+                        }else{
+                            $immediateConfiguration = array();
+                        }
+			
+                        
+			$tree = $this->getInheritanceTree($row);
+			if (0 === count($tree)) {
+				return $immediateConfiguration;
+			}
+                        
+			$inheritedConfiguration = $this->getMergedConfiguration($tree);
+                        
+			if (0 === count($immediateConfiguration)) {
+				return $inheritedConfiguration;
+			}
+			$merged = t3lib_div::array_merge_recursive_overrule($inheritedConfiguration, $immediateConfiguration);
+                        
+			return $merged;
+		} catch (Exception $error) {
+			$this->configurationService->debug($error);
+			return array();
+		}
+	}
+        
+        /**
+	 * @param array $tree
+	 * @return array
+	 */
+	protected function getMergedConfiguration(array $tree) {
+		$key = md5(json_encode($tree));
+		/*if (TRUE === isset(self::$cacheMergedConfigurations[$key])) {
+			return self::$cacheMergedConfigurations[$key];
+		}*/
+		$data = array();
+		foreach ($tree as $branch) {
+			$values = $this->getFlexFormInheritValues($branch);
+			$variables = $this->getTemplateInhertitVariables($branch);
+			foreach ($values as $name => $value) {
+				$stop = (TRUE === isset($variables['fields'][$name]['stopInheritance']));
+				$inherit = (TRUE === isset($variables['fields'][$name]['inheritEmpty']));
+				$empty = (TRUE === empty($value) && $value !== '0' && $value !== 0);
+				if (TRUE === $stop) {
+					unset($values[$name]);
+				} elseif (FALSE === $inherit && TRUE === $empty) {
+					unset($values[$name]);
+				}
+			}
+			$data = $this->arrayMergeRecursive($data, $values);
+		}
+		/*self::$cacheMergedConfigurations[$key] = $data;*/
+		return $data;
+	}
+        
 	/**
 	 * @param array $row
 	 * @return array|NULL
@@ -165,6 +261,32 @@ class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_
 	public function getTemplateVariables(array $row) {
 		$configuration = $this->pageService->getPageTemplateConfiguration($row['uid']);
 		$action = $configuration['tx_fed_page_controller_action'];
+		list ($extensionName, $action) = explode('->', $action);
+		$paths = Tx_Flux_Utility_Path::translatePath((array) $this->configurationService->getPageConfiguration($extensionName));
+		$templateRootPath = $paths['templateRootPath'];
+		if ('/' === substr($templateRootPath, -1)) {
+			$templateRootPath = substr($templateRootPath, 0, -1);
+		}
+		$templatePathAndFilename = $templateRootPath . '/Page/' . $action . '.html';
+		if (FALSE === file_exists($templatePathAndFilename)) {
+			return NULL;
+		}
+		$stored = $this->configurationService->getStoredVariable($templatePathAndFilename, 'storage', 'Configuration', $paths, $extensionName);
+		if (NULL === $stored) {
+			$this->configurationService->message('A valid configuration could not be retrieved from file ' . $templatePathAndFilename .
+				' - processing aborted; see earlier errors', t3lib_div::SYSLOG_SEVERITY_FATAL);
+			return NULL;
+		}
+		$this->configurationService->message('Flux is able to read template variables from file ' . $templatePathAndFilename, t3lib_div::SYSLOG_SEVERITY_INFO);
+		return $stored;
+	}
+        /**
+	 * @param array $row
+	 * @return array|NULL
+	 */
+	public function getTemplateInhertitVariables(array $row) {
+		$configuration = $this->pageService->getPageTemplateConfiguration($row['uid']);
+		$action = $configuration['tx_fed_page_controller_action_sub'];
 		list ($extensionName, $action) = explode('->', $action);
 		$paths = Tx_Flux_Utility_Path::translatePath((array) $this->configurationService->getPageConfiguration($extensionName));
 		$templateRootPath = $paths['templateRootPath'];

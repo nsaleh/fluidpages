@@ -15,6 +15,23 @@ t3lib_extMgm::addTCAcolumns('pages', array(
 			'userFunc' => 'Tx_Fluidpages_Backend_PageLayoutSelector->renderField'
 		)
 	),
+        'tx_fed_page_flexform_override' => array (
+                'displayCond' => array('AND'=> array('FIELD:tx_fed_page_controller_action:=:')),
+                'exclude' => 1,
+                'label' => 'LLL:EXT:fluidpages/Resources/Private/Language/locallang.xml:pages.tx_fed_page_flexform_override',
+                'config' => array (
+                   'type' => 'check'
+               )	
+        ),
+	'tx_fed_page_flexform' => Array (
+                'displayCond' => array('OR'=> array('FIELD:tx_fed_page_controller_action:!=:',
+                                            'FIELD:tx_fed_page_flexform_override:=:1')),
+		'exclude' => 1,
+		'label' => 'LLL:EXT:fluidpages/Resources/Private/Language/locallang.xml:pages.tx_fed_page_flexform',
+		'config' => array (
+			'type' => 'flex',
+		)
+	),
 	'tx_fed_page_controller_action_sub' => array (
 		'exclude' => 1,
 		'label' => 'LLL:EXT:fluidpages/Resources/Private/Language/locallang.xml:pages.tx_fed_page_controller_action_sub',
@@ -23,18 +40,28 @@ t3lib_extMgm::addTCAcolumns('pages', array(
 			'userFunc' => 'Tx_Fluidpages_Backend_PageLayoutSelector->renderField'
 		)
 	),
-	'tx_fed_page_flexform' => Array (
+        'tx_fed_page_flexform_override_sub' => array (
+                'displayCond' => array('AND'=> array('FIELD:tx_fed_page_controller_action_sub:=:')),
+                'exclude' => 1,
+                'label' => 'LLL:EXT:fluidpages/Resources/Private/Language/locallang.xml:pages.tx_fed_page_flexform_override_sub',
+                'config' => array (
+                   'type' => 'check'
+               )	
+        ),
+	'tx_fed_page_flexform_sub' => Array (
+                'displayCond' => array('OR'=> array('FIELD:tx_fed_page_controller_action_sub:!=:',
+                                            'FIELD:tx_fed_page_flexform_override_sub:=:1')),
 		'exclude' => 1,
-		'label' => 'LLL:EXT:fluidpages/Resources/Private/Language/locallang.xml:pages.tx_fed_page_flexform',
+		'label' => 'LLL:EXT:fluidpages/Resources/Private/Language/locallang.xml:pages.tx_fed_page_flexform_sub',
 		'config' => array (
 			'type' => 'flex',
 		)
 	),
 ), 1);
-
+$TCA['pages']['ctrl']['requestUpdate'] .= ',tx_fed_page_flexform_override,tx_fed_page_flexform_override_sub';
 $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['fluidpages']['setup'] = unserialize($_EXTCONF);
 $doktypes = '0,1,4';
-$fields = 'tx_fed_page_controller_action,tx_fed_page_controller_action_sub,tx_fed_page_flexform';
+$fields = 'tx_fed_page_controller_action,tx_fed_page_flexform_override,tx_fed_page_flexform,tx_fed_page_controller_action_sub,tx_fed_page_flexform_override_sub,tx_fed_page_flexform_sub';
 $position = 'before:layout';
 $additionalDoktypes = trim($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['fluidpages']['setup']['doktypes'], ',');
 t3lib_extMgm::addToAllTCAtypes(

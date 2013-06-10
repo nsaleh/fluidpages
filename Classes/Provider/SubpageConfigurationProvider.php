@@ -30,7 +30,7 @@
  * @package Fluidpages
  * @subpackage Provider
  */
-class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_AbstractConfigurationProvider implements Tx_Flux_Provider_ConfigurationProviderInterface {
+class Tx_Fluidpages_Provider_SubpageConfigurationProvider extends Tx_Flux_Provider_AbstractConfigurationProvider implements Tx_Flux_Provider_ConfigurationProviderInterface {
 
 	/**
 	 * @var string
@@ -45,7 +45,7 @@ class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_
 	/**
 	 * @var string
 	 */
-	protected $fieldName = 'tx_fed_page_flexform';
+	protected $fieldName = 'tx_fed_page_flexform_sub';
 
 	/**
 	 * @var string
@@ -123,9 +123,9 @@ class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_
 	public function getTemplatePaths(array $row) {
 		$paths = NULL;
 		try {
-			$configuration = $this->pageService->getPageTemplateConfiguration($row['uid']);
-			if ($configuration['tx_fed_page_controller_action']) {
-				$action = $configuration['tx_fed_page_controller_action'];
+			$configuration = $this->pageService->getSubpageTemplateConfiguration($row['uid']);
+			if ($configuration['tx_fed_page_controller_action_sub']) {
+				$action = $configuration['tx_fed_page_controller_action_sub'];
 				list ($extensionName, $action) = explode('->', $action);
 				$paths = $this->configurationService->getPageConfiguration($extensionName);
 			}
@@ -143,8 +143,8 @@ class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_
 	public function getTemplatePathAndFilename(array $row) {
 		$configuration = $this->pageService->getPageTemplateConfiguration($row['uid']);
 		$paths = $this->getTemplatePaths($row);
-		if ($configuration['tx_fed_page_controller_action']) {
-			$action = $configuration['tx_fed_page_controller_action'];
+		if ($configuration['tx_fed_page_controller_action_sub']) {
+			$action = $configuration['tx_fed_page_controller_action_sub'];
 			list ($extensionName, $action) = explode('->', $action);
 			if (is_array($paths)) {
 				$templateRootPath = $paths['templateRootPath'];
@@ -157,14 +157,48 @@ class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_
 		$templatePathAndFilename = t3lib_div::getFileAbsFileName($templatePathAndFilename);
 		return $templatePathAndFilename;
 	}
-
+        /**
+	 * Converts the contents of the provided row's Flux-enabled field,
+	 * at the same time running through the inheritance tree generated
+	 * by getInheritanceTree() in order to apply inherited values.
+	 *
+	 * @param array $row
+	 * @return array
+	 */
+	public function getFlexFormValues(array $row) {
+		try {
+			$fieldName = $this->fieldName;
+			$stored = $this->getTemplateVariables($row);
+                        if($row['tx_fed_page_controller_action_sub']){
+                            $immediateConfiguration = $this->configurationService->convertFlexFormContentToArray($row[$fieldName], $stored);
+                        }else{
+                            $immediateConfiguration = array();
+                        }
+			
+                        
+			$tree = $this->getInheritanceTree($row);
+			if (0 === count($tree)) {
+				return $immediateConfiguration;
+			}
+			$inheritedConfiguration = $this->getMergedConfiguration($tree);
+			if (0 === count($immediateConfiguration)) {
+				return $inheritedConfiguration;
+			}
+			$merged = t3lib_div::array_merge_recursive_overrule($inheritedConfiguration, $immediateConfiguration);
+                        
+			return $merged;
+		} catch (Exception $error) {
+			$this->configurationService->debug($error);
+			return array();
+		}
+	}
 	/**
 	 * @param array $row
 	 * @return array|NULL
 	 */
 	public function getTemplateVariables(array $row) {
 		$configuration = $this->pageService->getPageTemplateConfiguration($row['uid']);
-		$action = $configuration['tx_fed_page_controller_action'];
+		$action = $configuration['tx_fed_page_controller_action_sub'];
 		list ($extensionName, $action) = explode('->', $action);
 		$paths = Tx_Flux_Utility_Path::translatePath((array) $this->configurationService->getPageConfiguration($extensionName));
 		$templateRootPath = $paths['templateRootPath'];
@@ -219,7 +253,7 @@ class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_
 	 */
 	public function postProcessDataStructure(array &$row, &$dataStructure, array $conf) {
 		$selectedPageTemplate = $this->pageService->getPageTemplateConfiguration($row['uid']);
-		if (TRUE === empty($selectedPageTemplate['tx_fed_page_controller_action'])) {
+		if (TRUE === empty($selectedPageTemplate['tx_fed_page_controller_action_sub'])) {
 			$config['parameters'] = array(
 				'userFunction' => 'Tx_Flux_UserFunction_NoSelection->renderField'
 			);
@@ -235,7 +269,7 @@ class Tx_Fluidpages_Provider_PageConfigurationProvider extends Tx_Flux_Provider_
 	 */
 	public function getControllerExtensionKeyFromRecord(array $row) {
 		$configuration = $this->pageService->getPageTemplateConfiguration($row['uid']);
-		$action = $configuration['tx_fed_page_controller_action'];
+		$action = $configuration['tx_fed_page_controller_action_sub'];
 		$extensionName = array_shift(explode('->', $action));
 		$extensionKey = t3lib_div::camelCaseToLowerCaseUnderscored($extensionName);
 		return $extensionKey;
